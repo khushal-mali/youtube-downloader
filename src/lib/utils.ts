@@ -154,17 +154,33 @@ export interface ParsedProgress {
 }
 
 export function parseProgressLine(line: string): ParsedProgress | null {
-  // Match: [download]  45.2% of 150.00MiB at 18.50MiB/s ETA 00:04
-  const match = line.match(
-    /\[download\]\s+([\d.]+)%\s+of\s+([\d.]+\s*\S+)\s+at\s+([\d.]+\s*\S+\/s)\s+ETA\s+(\S+)/
+  // 1. yt-dlp format: [download]  45.2% of ~ 150.00MiB at 18.50MiB/s ETA 00:04 (frag 1/10)
+  const ytdlpMatch = line.match(
+    /\[download\]\s+([\d.]+)%\s+of\s+~?\s*([\d.]+\s*\S+)(?:\s+at\s+([\d.]+\s*\S+\/s))?(?:\s+ETA\s+(\S+))?/
   );
-  if (match) {
+  if (ytdlpMatch) {
     return {
-      percent: parseFloat(match[1]),
-      size: match[2],
-      speed: match[3],
-      eta: match[4],
+      percent: parseFloat(ytdlpMatch[1]),
+      size: ytdlpMatch[2],
+      speed: ytdlpMatch[3] || '',
+      eta: ytdlpMatch[4] || '',
     };
   }
+
+  // 2. aria2c format: [#247c2f 4.3MiB/5.1MiB(83%) CN:1 DL:849KiB ETA:1s]
+  const ariaMatch = line.match(
+    /\[#[a-f0-9]+\s+([^\/]+)\/([^\(]+)\(([\d.]+)%\)(?:.*?DL:([^\s\]]+))?(?:.*?ETA:([^\s\]]+))?/
+  );
+  if (ariaMatch) {
+    const rawSpeed = ariaMatch[4] || '';
+    const speed = rawSpeed ? (rawSpeed.endsWith('/s') ? rawSpeed : `${rawSpeed}/s`) : '';
+    return {
+      percent: parseFloat(ariaMatch[3]),
+      size: ariaMatch[2].trim(),
+      speed,
+      eta: ariaMatch[5] || '',
+    };
+  }
+
   return null;
 }

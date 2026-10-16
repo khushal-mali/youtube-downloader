@@ -42,7 +42,18 @@ async function findTool(
     try {
       const { stdout } = await execFileAsync(name, [versionFlag]);
       const version = stdout.split('\n')[0].trim();
-      return { found: true, path: name, version };
+      let resolvedPath = name;
+      try {
+        const lookupCmd = isWindows ? 'where.exe' : 'which';
+        const { stdout: whereOut } = await execFileAsync(lookupCmd, [name]);
+        const firstLine = whereOut.split(/\r?\n/)[0].trim();
+        if (firstLine && fs.existsSync(firstLine)) {
+          resolvedPath = firstLine;
+        }
+      } catch {
+        // fallback to name
+      }
+      return { found: true, path: resolvedPath, version };
     } catch {
       // try next
     }

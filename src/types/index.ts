@@ -16,6 +16,16 @@ export interface VideoFormat {
   label: string; // e.g. "1080p60 MP4"
 }
 
+export interface PlaylistVideoItem {
+  id: string;
+  title: string;
+  duration: number; // seconds
+  thumbnail: string;
+  uploader: string;
+  url: string;
+  index: number;
+}
+
 export interface VideoInfo {
   id: string;
   title: string;
@@ -29,6 +39,7 @@ export interface VideoInfo {
   description: string;
   isPlaylist: boolean;
   playlistCount: number | null;
+  playlistVideos?: PlaylistVideoItem[];
   formats: VideoFormat[];
   availableResolutions: ResolutionOption[];
   audioOptions: AudioOption[];
@@ -85,6 +96,12 @@ export interface SSEEvent {
   size?: string;
   filename?: string;
   error?: string;
+  // Playlist tracking
+  playlistIndex?: number;
+  playlistTotal?: number;
+  playlistItemPercent?: number;
+  playlistItemTitle?: string;
+  playlistItemId?: string;
 }
 
 // ─── Tool Detection ───────────────────────────────────────────────────────────
