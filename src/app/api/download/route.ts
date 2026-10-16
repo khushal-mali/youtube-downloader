@@ -85,39 +85,39 @@ export async function GET(request: NextRequest) {
       const outputTemplate = isPlaylist
         ? path.join(outputDir, '%(playlist_title|Playlist)s', '%(playlist_index|0)s - %(title)s [%(id)s].%(ext)s')
         : path.join(outputDir, '%(title)s [%(id)s].%(ext)s');
-      const args: string[] = ['--no-warnings', '--newline'];
+      const args: string[] = ['--no-warnings', '--newline', '--js-runtimes', 'node'];
 
       if (type === 'audio') {
-        // Audio-only extraction
+        // Audio-only extraction with multi-fragment acceleration
         args.push(
           '--format', formatString,
           '--extract-audio',
           '--audio-format', audioFormat,
           '--audio-quality', audioQuality,
-          '--output', outputTemplate
+          '--output', outputTemplate,
+          '--concurrent-fragments', '8'
         );
       } else {
         // Video download
         args.push(
           '--format', formatString,
           '--merge-output-format', mergeFormat,
-          '--output', outputTemplate
+          '--output', outputTemplate,
+          '--concurrent-fragments', '8'
         );
         // Use aria2c if available
         if (tools.aria2c.found) {
           args.push(
             '--downloader', 'aria2c',
-            '--downloader-args', 'aria2c:-x 16 -s 16 -k 1M --summary-interval=1'
+            '--downloader-args', 'aria2c:-x 8 -s 8 -k 1M --summary-interval=1'
           );
-        } else {
-          args.push('--concurrent-fragments', '8');
         }
       }
 
       if (embedThumbnail && tools.ffmpeg.found) {
         args.push('--embed-thumbnail');
       }
-      if (embedSubtitles) {
+      if (type === 'video' && embedSubtitles) {
         args.push('--write-auto-subs', '--sub-lang', 'en');
       }
       if (tools.ffmpeg.found && path.isAbsolute(tools.ffmpeg.path)) {

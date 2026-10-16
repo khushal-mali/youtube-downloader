@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
     const args = [
       '--dump-single-json',
       '--no-warnings',
+      '--js-runtimes', 'node',
     ];
 
     if (isPlaylistUrl) {
