@@ -123,6 +123,30 @@ function IconPlaylist() {
   );
 }
 
+function BrandLogoIcon({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="headerLogoBg" x1="48" y1="48" x2="464" y2="464" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FF334B" />
+          <stop offset="55%" stopColor="#E63946" />
+          <stop offset="100%" stopColor="#A80E1D" />
+        </linearGradient>
+        <linearGradient id="headerLogoGloss" x1="256" y1="48" x2="256" y2="280" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.32" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect x="48" y="48" width="416" height="416" rx="104" fill="url(#headerLogoBg)" />
+      <rect x="48" y="48" width="416" height="416" rx="104" fill="url(#headerLogoGloss)" />
+      <rect x="50" y="50" width="412" height="412" rx="102" stroke="rgba(255,255,255,0.25)" strokeWidth="4" />
+      <path d="M216 164.5C216 155.1 226.4 149.4 234.3 154.3L328.7 212.8C336.2 217.5 336.2 228.5 328.7 233.2L234.3 291.7C226.4 296.6 216 290.9 216 281.5V164.5Z" fill="#FFFFFF" />
+      <path d="M172 328L256 376L340 328" stroke="#FFFFFF" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="256" cy="408" r="8" fill="#FFFFFF" opacity="0.9" />
+    </svg>
+  );
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function now(): string {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -390,7 +414,7 @@ export default function Home() {
           <div className="wrap header-inner">
             <a href="/" className="logo">
               <div className="logo-mark">
-                <div className="logo-triangle" />
+                <BrandLogoIcon size={32} />
               </div>
               <span className="logo-name">YT<span>DL</span></span>
             </a>
@@ -1087,6 +1111,7 @@ export default function Home() {
         <footer className="footer">
           <div className="wrap footer-inner">
             <div className="footer-left">
+              <BrandLogoIcon size={20} />
               <strong>YTDL</strong> — local YouTube downloader
             </div>
             <div className="footer-right">yt-dlp · ffmpeg · aria2c</div>

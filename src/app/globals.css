@@ -152,31 +152,15 @@ body::after {
 .logo-mark {
   width: 32px;
   height: 32px;
-  background: var(--red);
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(230,57,70,0.4);
-  position: relative;
-  overflow: hidden;
+  border-radius: 8px;
+  transition: transform var(--fast) var(--spring);
 }
-.logo-mark::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
-}
-.logo-triangle {
-  width: 0;
-  height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-left: 10px solid white;
-  margin-left: 2px;
-  position: relative;
-  z-index: 1;
+.logo:hover .logo-mark {
+  transform: scale(1.08);
 }
 .logo-name {
   font-size: 15px;
@@ -1929,6 +1913,39 @@ body::after {
   background: var(--surface-3);
   border: 1px solid var(--border);
   color: var(--txt-3);
+}
+
+/* ── Footer ────────────────────────────────────────────────── */
+.footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  background: rgba(12, 12, 14, 0.6);
+  backdrop-filter: blur(12px);
+  padding: 18px 0;
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--txt-3);
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-left strong {
+  color: var(--txt-1);
+}
+
+.footer-right {
+  font-family: var(--mono);
+  font-size: 11px;
 }
 
 

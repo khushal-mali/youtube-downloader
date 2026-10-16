@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Main Background Gradient -->
+    <linearGradient id="bg" x1="48" y1="48" x2="464" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF334B"/>
+      <stop offset="55%" stop-color="#E63946"/>
+      <stop offset="100%" stop-color="#A80E1D"/>
+    </linearGradient>
+
+    <!-- Top Gloss / Bevel Highlight -->
+    <linearGradient id="gloss" x1="256" y1="48" x2="256" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Symbol Drop Shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#4A050B" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Outer Rounded Squircle -->
+  <rect x="48" y="48" width="416" height="416" rx="104" fill="url(#bg)"/>
+  <rect x="48" y="48" width="416" height="416" rx="104" fill="url(#gloss)"/>
+  <rect x="50" y="50" width="412" height="412" rx="102" stroke="rgba(255,255,255,0.22)" stroke-width="4"/>
+
+  <!-- Play Triangle (pointing right) -->
+  <path d="M216 164.5C216 155.1 226.4 149.4 234.3 154.3L328.7 212.8C336.2 217.5 336.2 228.5 328.7 233.2L234.3 291.7C226.4 296.6 216 290.9 216 281.5V164.5Z" 
+        fill="#FFFFFF" 
+        filter="url(#shadow)"/>
+
+  <!-- Downward Download Tray / Chevron -->
+  <path d="M172 328L256 376L340 328" 
+        stroke="#FFFFFF" 
+        stroke-width="32" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        filter="url(#shadow)"/>
+
+  <!-- Downward Velocity Point -->
+  <circle cx="256" cy="408" r="8" fill="#FFFFFF" opacity="0.9"/>
+</svg>
