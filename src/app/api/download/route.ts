@@ -37,13 +37,27 @@ export async function GET(request: NextRequest) {
 
   const encoder = new TextEncoder();
 
+  let proc: ReturnType<typeof spawn> | null = null;
+  let isClosed = false;
+
   const stream = new ReadableStream({
     async start(controller) {
+      const safeClose = () => {
+        if (isClosed) return;
+        isClosed = true;
+        try {
+          controller.close();
+        } catch {
+          // Controller already closed or stream aborted
+        }
+      };
+
       const enqueue = (event: SSEEvent) => {
+        if (isClosed) return;
         try {
           controller.enqueue(encoder.encode(sseMessage(event)));
         } catch {
-          // client disconnected
+          isClosed = true;
         }
       };
 
@@ -53,7 +67,7 @@ export async function GET(request: NextRequest) {
         tools = await getTools();
       } catch (e) {
         enqueue({ type: 'error', error: 'Failed to detect tools' });
-        controller.close();
+        safeClose();
         return;
       }
 
@@ -62,12 +76,15 @@ export async function GET(request: NextRequest) {
           type: 'error',
           error: 'yt-dlp not found. Install it or place it in ./bin/',
         });
-        controller.close();
+        safeClose();
         return;
       }
 
       // Build yt-dlp args
-      const outputTemplate = path.join(outputDir, '%(title)s [%(id)s].%(ext)s');
+      const isPlaylist = url.includes('/playlist') || (url.includes('list=') && !url.includes('&v=') && !url.includes('?v='));
+      const outputTemplate = isPlaylist
+        ? path.join(outputDir, '%(playlist_title|Playlist)s', '%(playlist_index|0)s - %(title)s [%(id)s].%(ext)s')
+        : path.join(outputDir, '%(title)s [%(id)s].%(ext)s');
       const args: string[] = ['--no-warnings', '--newline'];
 
       if (type === 'audio') {
@@ -103,8 +120,8 @@ export async function GET(request: NextRequest) {
       if (embedSubtitles) {
         args.push('--write-auto-subs', '--sub-lang', 'en');
       }
-      if (tools.ffmpeg.found) {
-        args.push('--ffmpeg-location', path.dirname(tools.ffmpeg.path));
+      if (tools.ffmpeg.found && path.isAbsolute(tools.ffmpeg.path)) {
+        args.push('--ffmpeg-location', tools.ffmpeg.path);
       }
 
       args.push(url);
@@ -112,23 +129,83 @@ export async function GET(request: NextRequest) {
       enqueue({ type: 'info', message: `Starting download with yt-dlp...` });
       enqueue({ type: 'log', message: `$ yt-dlp ${args.join(' ')}` });
 
-      const proc = spawn(tools.ytdlp.path, args, { cwd: outputDir });
+      proc = spawn(tools.ytdlp.path, args, { cwd: outputDir });
 
-      let lastPercent = 0;
+      const isTwoStreams = !isPlaylist && type === 'video' && formatString.includes('+');
+      let streamCount = 0;
+      let lastCalculatedPercent = 0;
+      let currentPlaylistItem = 1;
+      let totalPlaylistItems = isPlaylist ? 1 : 1;
 
-      proc.stdout.on('data', (chunk: Buffer) => {
+      proc.stdout?.on('data', (chunk: Buffer) => {
         const lines = chunk.toString().split('\n');
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
 
-          // Try to parse progress
+          // Check for playlist item tracking
+          const itemMatch = trimmed.match(/\[download\]\s+(?:Downloading\s+)?(?:playlist\s+)?(?:item|video)\s+(\d+)\s+of\s+(\d+)/i);
+          if (itemMatch) {
+            currentPlaylistItem = parseInt(itemMatch[1], 10);
+            totalPlaylistItems = parseInt(itemMatch[2], 10);
+            enqueue({
+              type: 'info',
+              message: `Downloading video ${currentPlaylistItem} of ${totalPlaylistItems}...`,
+              playlistIndex: currentPlaylistItem,
+              playlistTotal: totalPlaylistItems,
+              playlistItemPercent: 0,
+            });
+            continue;
+          }
+
+          // Track new stream destination
+          if (trimmed.startsWith('[download] Destination:')) {
+            streamCount++;
+            const filename = path.basename(trimmed.replace('[download] Destination:', '').trim());
+            enqueue({
+              type: 'info',
+              message: `Saving: ${filename}`,
+              filename,
+              playlistIndex: currentPlaylistItem,
+              playlistTotal: totalPlaylistItems,
+              playlistItemPercent: 0,
+            });
+            continue;
+          }
+
+          // Try to parse progress (supports yt-dlp, fragments with ~, and aria2c)
           const progress = parseProgressLine(trimmed);
           if (progress) {
-            lastPercent = progress.percent;
+            let overallPercent = progress.percent;
+
+            if (totalPlaylistItems > 1) {
+              // Multi-video playlist progress
+              const itemProgress = progress.percent / 100;
+              overallPercent = Math.min(99, ((currentPlaylistItem - 1 + itemProgress) / totalPlaylistItems) * 100);
+            } else if (isTwoStreams) {
+              if (streamCount <= 1) {
+                // First stream (video): maps 0% - 100% to 0% - 82%
+                overallPercent = Math.min(82, (progress.percent / 100) * 82);
+              } else {
+                // Second stream (audio): maps 0% - 100% to 82% - 94%
+                overallPercent = Math.min(94, 82 + (progress.percent / 100) * 12);
+              }
+            } else {
+              // Single stream: maps 0% - 100% to 0% - 92%
+              overallPercent = Math.min(92, (progress.percent / 100) * 92);
+            }
+
+            // Only advance forward to avoid jumping backwards
+            if (overallPercent > lastCalculatedPercent) {
+              lastCalculatedPercent = overallPercent;
+            }
+
             enqueue({
               type: 'progress',
-              percent: progress.percent,
+              percent: Math.round(lastCalculatedPercent * 10) / 10,
+              playlistIndex: currentPlaylistItem,
+              playlistTotal: totalPlaylistItems,
+              playlistItemPercent: Math.round(progress.percent),
               speed: progress.speed,
               eta: progress.eta,
               size: progress.size,
@@ -138,20 +215,30 @@ export async function GET(request: NextRequest) {
 
           // Merging message
           if (trimmed.includes('[Merger]') || trimmed.includes('Merging formats')) {
-            enqueue({ type: 'merging', message: 'Merging video and audio streams...' });
+            lastCalculatedPercent = Math.max(lastCalculatedPercent, 95);
+            enqueue({
+              type: 'merging',
+              message: 'Merging video and audio streams...',
+              percent: 95,
+            });
             continue;
           }
 
-          // Download complete line
-          if (trimmed.includes('[download] 100%') || trimmed.match(/\[download\]\s+100/)) {
-            enqueue({ type: 'progress', percent: 100, speed: '', eta: '0:00', size: '' });
-            continue;
-          }
-
-          // Destination/filename
-          if (trimmed.startsWith('[download] Destination:')) {
-            const filename = path.basename(trimmed.replace('[download] Destination:', '').trim());
-            enqueue({ type: 'info', message: `Saving: ${filename}`, filename });
+          // Postprocessing / Thumbnails / Subtitles / Extraction
+          if (
+            trimmed.includes('[ThumbnailsConvertor]') ||
+            trimmed.includes('[EmbedSubtitle]') ||
+            trimmed.includes('[ExtractAudio]') ||
+            trimmed.includes('[Fixup')
+          ) {
+            lastCalculatedPercent = Math.max(lastCalculatedPercent, 98);
+            enqueue({
+              type: 'progress',
+              percent: 98,
+              speed: '—',
+              eta: 'almost done',
+              size: '',
+            });
             continue;
           }
 
@@ -160,7 +247,7 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      proc.stderr.on('data', (chunk: Buffer) => {
+      proc.stderr?.on('data', (chunk: Buffer) => {
         const lines = chunk.toString().split('\n');
         for (const line of lines) {
           const trimmed = line.trim();
@@ -181,17 +268,27 @@ export async function GET(request: NextRequest) {
             percent: 100,
           });
         } else {
-          if (lastPercent < 100) {
+          if (lastCalculatedPercent < 100) {
             enqueue({ type: 'error', error: `Process exited with code ${code}` });
           }
         }
-        controller.close();
+        safeClose();
       });
 
       proc.on('error', (err) => {
         enqueue({ type: 'error', error: `Failed to spawn process: ${err.message}` });
-        controller.close();
+        safeClose();
       });
+    },
+    cancel() {
+      isClosed = true;
+      if (proc && !proc.killed) {
+        try {
+          proc.kill();
+        } catch {
+          // ignore
+        }
+      }
     },
   });
 
